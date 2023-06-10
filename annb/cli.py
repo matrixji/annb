@@ -18,7 +18,7 @@ def main():
     args = parser.parse_args()
     index_factory = FaissIndexUnderTestFactory()
 
-    for count in (50000, 20000, 10000):
+    for count in (1000000, 2000000, 5000000):
         for metric in ('ip', 'l2'):
             for nq in (1, 10, 100, 200):
                 for topk in (1, 10, 100):

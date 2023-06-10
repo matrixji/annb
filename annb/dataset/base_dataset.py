@@ -10,11 +10,10 @@ class BaseDataset(ABC):
     count = 0
     normalize = True
 
-    def __init__(self, cache, **kwargs):
+    def __init__(self, **kwargs):
         """
         :param dataset_name: Name of the dataset.
         """
-        self.cache = cache
         self.kwargs = kwargs
 
     @property
@@ -22,6 +21,14 @@ class BaseDataset(ABC):
     def data(self) -> np.ndarray:
         """
         Return dataset data.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def training_data(self) -> np.ndarray:
+        """
+        Return dataset training data.
         """
         pass
 

@@ -16,7 +16,7 @@ class MetricType(Enum):
         elif text.lower() == 'ip':
             return cls.INNER_PRODUCT
         elif text.lower() == 'euclidean':
-            return cls.EUCLIDEAN
+            return cls.L2
         elif text.lower() == 'l2':
             return cls.L2
         else:
