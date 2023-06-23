@@ -35,6 +35,7 @@ class FaissIndexUnderTest(IndexUnderTest):
     def search(self, query: np.ndarray, k: int) -> Tuple[List[float], List[int]]:
         return self.index.search(query, k)
 
+
 class FaissIndexUnderTestFactory(IndexUnderTestFactory):
     def create(self, index_name: str, dimension: int, metric_type: MetricType, **kwargs) -> IndexUnderTest:
         return FaissIndexUnderTest(index_name, dimension, metric_type, **kwargs)

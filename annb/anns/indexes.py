@@ -15,6 +15,8 @@ class MetricType(Enum):
             return cls.INNER_PRODUCT
         elif text.lower() == 'ip':
             return cls.INNER_PRODUCT
+        elif text.lower() == 'angular':
+            return cls.INNER_PRODUCT
         elif text.lower() == 'euclidean':
             return cls.L2
         elif text.lower() == 'l2':

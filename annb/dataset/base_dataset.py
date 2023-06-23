@@ -5,10 +5,11 @@ from ..anns.indexes import MetricType
 
 class BaseDataset(ABC):
 
+
+    name = 'Dataset'
     metric_type = MetricType.L2
     dimension = 0
     count = 0
-    normalize = True
 
     def __init__(self, **kwargs):
         """
@@ -20,30 +21,39 @@ class BaseDataset(ABC):
     @abstractmethod
     def data(self) -> np.ndarray:
         """
-        Return dataset data.
+        Return the dataset to be added to the index.
         """
         pass
 
     @property
     @abstractmethod
-    def training_data(self) -> np.ndarray:
+    def train(self) -> np.ndarray:
         """
-        Return dataset training data.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def ground_truth(self) -> np.ndarray:
-        """
-        Return dataset ground truth.
+        Return dataset to be used for training.
+        colud use different dataset for training and adding.
         """
         pass
 
     @property
     @abstractmethod
-    def query_data(self) -> np.ndarray:
+    def test(self) -> np.ndarray:
         """
-        Return dataset query.
+        Return dataset to be used for search testing.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def ground_truth_neighbors(self) -> np.ndarray:
+        """
+        Return ground truth for dataset. ID labels of nearest neighbors.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def ground_truth_distances(self) -> np.ndarray:
+        """
+        Return ground truth for dataset. Distances to nearest neighbors.
         """
         pass

@@ -99,7 +99,7 @@ class Runner:
         else:
             self.duration_execution(
                 f'search({self.metric_type.name}),nb={self.dataset.count},dim={self.dataset.dimension},query={nq},k={topk}#{self.run_count}',
-                self.index.search, self.dataset.query_data[:nq], topk)
+                self.index.search, self.dataset.test[:nq], topk)
 
     def get_search_data(self, n):
         """

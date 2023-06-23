@@ -1,4 +1,5 @@
 from time import monotonic
+from typing import Tuple
 import numpy as np
 from ..anns.indexes import MetricType
 
@@ -22,7 +23,7 @@ def duration_execution(stage, func, *args, **kwargs):
     return res
 
 
-def generate_groundtruth(query, data, metric_type) -> np.ndarray:
+def generate_groundtruth(query, data, metric_type) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate ground truth for dataset.
 
@@ -38,14 +39,14 @@ def generate_groundtruth(query, data, metric_type) -> np.ndarray:
         from faiss import knn_gpu, METRIC_L2, METRIC_INNER_PRODUCT, StandardGpuResources
         metric = METRIC_L2 if metric_type == MetricType.L2 else METRIC_INNER_PRODUCT
         res = StandardGpuResources()
-        return duration_execution('generate_groundtruth/knn_gpu', knn_gpu, res, query[:query_max], data, k, metric=metric)[1]
+        return duration_execution('generate_groundtruth/knn_gpu', knn_gpu, res, query[:query_max], data, k, metric=metric)
     except ImportError:
         pass
 
     try:
         from faiss import knn, METRIC_L2, METRIC_INNER_PRODUCT
         metric = METRIC_L2 if metric_type == MetricType.L2 else METRIC_INNER_PRODUCT
-        return duration_execution('generate_groundtruth/knn', knn, query[:query_max], data, k, metric=metric)[1]
+        return duration_execution('generate_groundtruth/knn', knn, query[:query_max], data, k, metric=metric)
     except ImportError:
         pass
 
@@ -53,8 +54,7 @@ def generate_groundtruth(query, data, metric_type) -> np.ndarray:
         from sklearn.neighbors import NearestNeighbors
         metric_text = 'l2' if metric_type == MetricType.L2 else 'cosine'
         nbrs = NearestNeighbors(n_neighbors=k, metric=metric_text, n_jobs=-1).fit(data)
-        _, ids = duration_execution('generate_groundtruth/sklearn', nbrs.kneighbors, query[:query_max])
-        return ids
+        return duration_execution('generate_groundtruth/sklearn', nbrs.kneighbors, query[:query_max])
     except ImportError:
         pass
 

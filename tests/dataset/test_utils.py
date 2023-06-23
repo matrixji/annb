@@ -8,11 +8,12 @@ def test_generate_groundtruth():
     query = data
     metric_type = MetricType.L2
     ground_truth = utils.generate_groundtruth(query, data, metric_type)
-    assert ground_truth.shape == (1000, 100)
-    assert ground_truth.dtype == np.int64
-    assert np.all(ground_truth >= 0)
-    assert np.all(ground_truth < 1000)
-    assert np.equal(ground_truth[:,0], np.arange(1000)).all()
+    _, ids = ground_truth
+    assert ids.shape == (1000, 100)
+    assert ids.dtype == np.int64
+    assert np.all(ids >= 0)
+    assert np.all(ids < 1000)
+    assert np.equal(ids[:,0], np.arange(1000)).all()
 
 def test_generate_groundtruth_without_faiss():
     # mock for faiss to remove knn_gpu function
