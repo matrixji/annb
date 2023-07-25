@@ -1,7 +1,8 @@
 from unittest import mock
 import numpy as np
 from annb.dataset import utils
-from annb.anns.indexes import MetricType
+from annb.indexes import MetricType
+
 
 def test_generate_groundtruth():
     data = np.random.rand(1000, 128).astype('float32')
@@ -13,7 +14,8 @@ def test_generate_groundtruth():
     assert ids.dtype == np.int64
     assert np.all(ids >= 0)
     assert np.all(ids < 1000)
-    assert np.equal(ids[:,0], np.arange(1000)).all()
+    assert np.equal(ids[:, 0], np.arange(1000)).all()
+
 
 def test_generate_groundtruth_without_faiss():
     # mock for faiss to remove knn_gpu function

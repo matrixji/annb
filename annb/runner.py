@@ -1,113 +1,208 @@
-from time import monotonic
-from .anns.indexes import MetricType, IndexUnderTest, IndexUnderTestFactory
+from queue import Empty
+import sys
+from collections import namedtuple
+from logging import getLogger
+from time import monotonic_ns
+from multiprocessing import Process, Queue
+from typing import List, Dict
+from datetime import datetime
+
+import numpy as np
+
+from .indexes import IndexUnderTest
 from .dataset import BaseDataset
+from .result import BenchmarkResult
+
+SingleResult = namedtuple(
+    'SingleResult', ['distances', 'labels', 'time', 'test_indexes', 'count']
+)
 
 
 class Runner:
-    """
-    Runner for run benchmarks
-    """
+    log = getLogger('annb')
 
-    def __init__(self, dataset: BaseDataset, index_factory: IndexUnderTestFactory, **kwargs) -> None:
+    def __init__(self, name, index: IndexUnderTest, dataset: BaseDataset, **kwargs):
+        self.name = name
+        self.index = index
         self.dataset = dataset
-        self.index_factory = index_factory
-        self.index = None
-        self.interations = kwargs.get('iterations', 10)
-        self.timeout = kwargs.get('timeout', -1)
-        self.started = 0.0
-        self.run_count = 0
-        self.name = kwargs.get('name', 'test')
-        self.dimension = kwargs.get('dimension', 128)
-        self.metric_type = MetricType.from_text(
-            kwargs.get('metric_type', 'l2').lower())
-        # remove keys for args conflict
-        for key in ('name', 'dimension', 'metric_type'):
-            if key in kwargs:
-                del kwargs[key]
-        self.kwargs = kwargs
+        self.query_args = kwargs.get('query_args', [])
+        self.topk = kwargs.get('topk', 10)
+        self.step = kwargs.get('step', 10)
+        self.jobs = kwargs.get('jobs', 1)
+        self.loop = kwargs.get('loop', 5)
+        self.benchmark_result = BenchmarkResult()
+        self.loop_index = 0
+        self.queue = Queue()
+        self.records = {}
+        for key, value in kwargs.items():
+            self.benchmark_result.add_attribute(key, value)
+        self.benchmark_result.add_attribute('name', self.name)
+        self.benchmark_result.add_attribute('topk', self.topk)
+        self.benchmark_result.add_attribute('step', self.step)
+        self.benchmark_result.add_attribute('jobs', self.jobs)
+        self.benchmark_result.add_attribute('loop', self.loop)
+        self.benchmark_result.add_attribute('query_args', self.query_args)
+        self.benchmark_result.add_attribute('dataset', self.dataset.name)
+        self.benchmark_result.add_attribute('index', self.index.name)
+        self.benchmark_result.add_attribute('dim', self.index.dimension)
+        self.benchmark_result.add_attribute('metric_type', self.index.metric_type)
+        self.benchmark_result.add_attribute('index_args', self.index.kwargs)
+        self.benchmark_result.add_attribute(
+            'started', datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        )
 
-        # test types
-        self.test_types = kwargs.get('test_types', 'search').split(',')
-        self.test_train = 'train' in self.test_types
-        self.test_search = 'search' in self.test_types
-        self.test_recall = 'recall' in self.test_types
-        self.validate()
-        self.durations = {}
-
-    def validate(self):
-        """
-        validate runner configuration
-        """
-        if self.dimension != self.dataset.dimension:
-            raise ValueError('Dimension mismatch: {} != {}'.format(
-                self.dimension, self.dataset.dimension))
-        if self.metric_type != self.dataset.metric_type:
-            raise ValueError('Metric type mismatch: {} != {}'.format(
-                self.metric_type, self.dataset.metric_type))
-
-    def duration_execution(self, stage, func, *args, **kwargs):
-        """
-        Measure execution duration of function
-
-        :param stage: Stage name
-        :param func: Function to measure
-        :param args: Function arguments
-        :param kwargs: Function keyword arguments
-        :return: Function result
-        """
-        duration_stage = stage.split('#')[0]
-        started = monotonic()
+    def duration_run(self, text, func, *args, **kwargs):
+        started = monotonic_ns()
         res = func(*args, **kwargs)
-        duration = monotonic() - started
-        print('Stage: {}, duration: {:.3f}ms'.format(stage, duration * 1000.0))
-        self.durations.setdefault(duration_stage, []).append(duration)
-        return res
+        duration = monotonic_ns() - started
+        self.log.info('%s: %fms', text, duration / 1000000.0)
+        return res, duration
 
     def run(self):
-        """
-        Run benchmarks
-        """
-        self.started = monotonic()
-        if not self.test_train:
-            # means test recall or search
-            self.index = self.index_factory.create(
-                self.name, self.dimension, self.metric_type, **self.kwargs)
-            self.index.train(self.dataset.data)
-            self.index.add(self.dataset.data)
-            self.index.warmup()
+        self.index.cleanup()
+        _, duration = self.duration_run(
+            f'train {len(self.dataset.train)} items',
+            self.index.train,
+            self.dataset.train,
+        )
+        self.benchmark_result.add_training_duration(len(self.dataset.train), duration)
+        _, duration = self.duration_run(
+            f'add {len(self.dataset.data)} items', self.index.add, self.dataset.data
+        )
+        self.benchmark_result.add_insert_duration(len(self.dataset.data), duration)
+        self.run_search_loop()
 
-        while not self.should_stop():
-            self.run_iteration()
-        for key in self.durations:
-            durations = sum(self.durations[key]) / len(self.durations[key])
-            print('Stage average: {}, duration: {:.3f}ms'.format(key, durations * 1000.0))
+    def run_search_loop(self):
+        query_args = self.query_args or [None]
+        for i, query_arg in enumerate(query_args):
+            if query_arg:
+                self.index.update_search_args(**query_arg)
+                self.log.info('Update query args: %s', query_arg)
+            self.records.clear()
+            for loop_index in range(self.loop):
+                self.loop_index = loop_index
+                self.run_search()
+            self.finalize_result(query_arg)
+            self.log.info('Finish query args(%d/%d)', i + 1, len(query_args))
 
-    def run_iteration(self):
-        self.run_count += 1
-        nq = int(self.kwargs.get('nq', 10))
-        topk = int(self.kwargs.get('topk', 10))
+    @classmethod
+    def run_multi_search(cls, args):
+        for arg in args:
+            cls.run_single_search(*arg)
 
-        if self.test_train:
-            # recreate the index
-            if self.index:
-                self.index.cleanup()
-            self.index = self.index_factory.create(
-                self.name, self.dimension, self.metric_type, **self.kwargs)
-            self.duration_execution(
-                'train', self.index.train, self.dataset.data)
-            self.index.add(self.dataset.data)
-        else:
-            self.duration_execution(
-                f'search({self.metric_type.name}),nb={self.dataset.count},dim={self.dataset.dimension},query={nq},k={topk}#{self.run_count}',
-                self.index.search, self.dataset.test[:nq], topk)
+    @classmethod
+    def run_single_search(
+        cls,
+        index: IndexUnderTest,
+        xq: np.array,
+        test_indexes: List[int],
+        topk: int,
+        queue: Queue,
+    ):
+        assert len(xq) == len(test_indexes)
+        start = monotonic_ns()
+        distances, labels = index.search(xq, topk)
+        end = monotonic_ns()
+        result = SingleResult(distances, labels, end - start, test_indexes, len(xq))
+        queue.put(result)
 
-    def get_search_data(self, n):
-        """
-        Get search data for search benchmark
-        """
-        return self.dataset.data[:n]
+    def finalize_result(self, query_arg: Dict):
+        best_loop = self.find_best_loop()
+        best_results = self.records[best_loop]
+        best_results = sorted(best_results, key=lambda r: r.test_indexes[0])
+        np.concatenate([r.distances for r in best_results])
+        labels = np.concatenate([r.labels for r in best_results])
+        durations = [(len(r.test_indexes), r.time) for r in best_results]
+        correct_count = 0
+        total_count = 0
+        ground_truth_neighbors = self.dataset.ground_truth_neighbors[:, : self.topk]
 
-    def should_stop(self):
-        if self.timeout < 0:
-            return self.run_count >= self.interations
-        return monotonic() - self.started > self.timeout or self.run_count >= self.interations
+        # calc recall between ground_truth_neighbors and labels
+        for i, (gt, test_items) in enumerate(zip(ground_truth_neighbors, labels)):
+            total_count += len(gt)
+            for test_item in test_items:
+                if test_item in gt:
+                    correct_count += 1
+        recall = correct_count / total_count
+        self.log.info('recall %.6f(%d/%d)', recall, correct_count, total_count)
+        self.benchmark_result.add_query_result(
+            recall=recall, durations=durations, query_arg=query_arg
+        )
+
+    def find_best_loop(self):
+        # select which loop is the best
+        best_loop = -1
+        best_time = sys.maxsize
+        for loop_index, records in self.records.items():
+            time = 0
+            indexes = []
+            for record in records:
+                time += record.time
+                indexes.extend(record.test_indexes)
+            indexes = sorted(indexes)
+            if time < best_time and indexes == list(range(len(indexes))):
+                best_loop = loop_index
+                best_time = time
+        if best_loop < 0:
+            raise RuntimeError('No best loop found')
+        self.log.info(
+            '%s best loop: %d, with total duration: %fms',
+            self.name,
+            best_loop + 1,
+            best_time / 1000000,
+        )
+        return best_loop
+
+    def handle_result(self, result, proceed, total):
+        self.log.debug(
+            '%s single result: %d queries (%d/%d), %fms',
+            self.name,
+            result.count,
+            proceed,
+            total,
+            result.time / 1000000,
+        )
+        self.records.setdefault(self.loop_index, []).append(result)
+
+    def run_search(self):
+        xq = self.dataset.test
+        total_count = len(xq)
+        jobs_args_list = [[]] * self.jobs
+        for i in range(0, total_count, self.step):
+            index = i // self.step % self.jobs
+            indexes = list(range(i, min(i + self.step, total_count)))
+            job_arg = (
+                self.index,
+                xq[i : i + self.step],
+                indexes,
+                self.topk,
+                self.queue,
+            )
+            jobs_args_list[index].append(job_arg)
+        jobs = []
+        for pargs in jobs_args_list:
+            p = Process(target=self.run_multi_search, args=(pargs,))
+            jobs.append(p)
+            p.start()
+        # collect the result
+        for i in range(0, total_count, self.step):
+            try:
+                ret = self.queue.get(timeout=180)
+            except Empty:
+                self.log.error(
+                    'Timeout when waiting for result, not result return in 180 seconds'
+                )
+                break
+            if isinstance(ret, str):
+                self.log.debug('debug from subprocess: %s', ret)
+            else:
+                proceed_count = i + self.step
+                self.handle_result(ret, proceed_count, total_count)
+        for p in jobs:
+            p.join()
+        self.log.info(
+            'Finish %d queries in loop(%d/%d)',
+            total_count,
+            self.loop_index + 1,
+            self.loop,
+        )

@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 import numpy as np
 
-from ..anns.indexes import MetricType
+from ..indexes import MetricType
+
 
 class BaseDataset(ABC):
-
-
     name = 'Dataset'
     metric_type = MetricType.L2
     dimension = 0
@@ -30,7 +29,7 @@ class BaseDataset(ABC):
     def train(self) -> np.ndarray:
         """
         Return dataset to be used for training.
-        colud use different dataset for training and adding.
+        could use different dataset for training and adding.
         """
         pass
 
