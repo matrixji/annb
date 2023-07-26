@@ -49,6 +49,7 @@ def load_dict(s):
             v = float(v)
         except ValueError:
             v = str(v)
+        data[k] = v
     return data
 
 
