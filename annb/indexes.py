@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Tuple, List, Union, Dict
 from hashlib import sha1
+from logging import getLogger
 
 import numpy as np
 from .envs import get_run_dir
@@ -45,6 +46,7 @@ class IndexUnderTest(ABC):
         self.dimension = dimension
         self.metric_type = metric_type
         self.kwargs = kwargs
+        self.log = getLogger('annb')
 
     def verify(self) -> bool:
         """

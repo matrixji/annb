@@ -17,46 +17,54 @@ class FaissIndexUnderTest(IndexUnderTest):
             if self.metric_type == MetricType.L2
             else faiss.METRIC_INNER_PRODUCT
         )
-        using_gpu = str(self.kwargs.get('gpu', 'no')).lower() in [
-            'yes',
-            'true',
-            '1',
-            'on',
+        using_gpu = str(self.kwargs.get("gpu", "no")).lower() in [
+            "yes",
+            "true",
+            "1",
+            "on",
         ]
-        index_string = self.kwargs.get('index', 'flat')
+        index_string = self.kwargs.get("index", "flat")
         index = None
-        if index_string == 'flat':
+        if index_string == "flat":
             index = faiss.IndexFlat(self.dimension, faiss_metric)
-        elif index_string == 'ivfflat':
+        elif index_string == "ivfflat":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
             index = faiss.IndexIVFFlat(
-                quantizer, self.dimension, self.kwargs.get('nlist', 128), faiss_metric
+                quantizer, self.dimension, self.kwargs.get("nlist", 128), faiss_metric
             )
-        elif index_string == 'ivfpq':
+        elif index_string == "ivfpq":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
             index = faiss.IndexIVFPQ(
                 quantizer,
                 self.dimension,
-                self.kwargs.get('nlist', 128),
-                self.kwargs.get('m', 8),
-                self.kwargs.get('nbits', 8),
+                self.kwargs.get("nlist", 128),
+                self.kwargs.get("m", 8),
+                self.kwargs.get("nbits", 8),
             )
-        elif index_string == 'ivfsq':
+        elif index_string == "ivfsq":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
             index = faiss.IndexIVFScalarQuantizer(
                 quantizer,
                 self.dimension,
-                self.kwargs.get('nlist', 128),
+                self.kwargs.get("nlist", 128),
                 faiss.ScalarQuantizer.QT_8bit,
             )
         else:
             index = faiss.index_factory(self.dimension, index_string, faiss_metric)
         if (
             using_gpu
-            and hasattr(faiss, 'index_cpu_to_gpu')
-            and hasattr(faiss, 'StandardGpuResources')
+            and hasattr(faiss, "index_cpu_to_gpu")
+            and hasattr(faiss, "StandardGpuResources")
         ):
+            self.log.debug("copy index to gpu")
             index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, index)
+        else:
+            self.log.debug(
+                "use cpu index, gpu: %s, faiss has gpu support: %s",
+                using_gpu,
+                hasattr(faiss, "index_cpu_to_gpu")
+                and hasattr(faiss, "StandardGpuResources"),
+            )
         return index
 
     def train(self, data: np.ndarray) -> None:
@@ -67,7 +75,7 @@ class FaissIndexUnderTest(IndexUnderTest):
 
     def warmup(self) -> None:
         for _ in range(3):
-            random_data = np.random.rand(10, self.dimension).astype('float32')
+            random_data = np.random.rand(10, self.dimension).astype("float32")
             random_data /= np.linalg.norm(random_data, axis=1)[:, None]
             self.search(random_data, 10)
 
@@ -75,8 +83,8 @@ class FaissIndexUnderTest(IndexUnderTest):
         return self.index.search(query, k)
 
     def update_search_args(self, **kwargs):
-        if 'nprobe' in kwargs:
-            self.index.nprobe = kwargs['nprobe']
+        if "nprobe" in kwargs:
+            self.index.nprobe = kwargs["nprobe"]
 
     def cleanup(self) -> None:
         self.index.reset()
