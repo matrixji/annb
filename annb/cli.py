@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
 from typing import Union
-import json
 from logging import getLogger, Formatter, StreamHandler, FileHandler
 from sys import stdout
 
@@ -42,7 +41,14 @@ def load_dict(s):
     data = {}
     for x in s.split(','):
         k, v = x.split('=')
-        data[k] = json.loads(v)
+        try:
+            v = int(v)
+        except ValueError:
+            v = str(v)
+        try:
+            v = float(v)
+        except ValueError:
+            v = str(v)
     return data
 
 
