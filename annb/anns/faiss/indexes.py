@@ -51,21 +51,21 @@ class FaissIndexUnderTest(IndexUnderTest):
             )
         else:
             index = faiss.index_factory(self.dimension, index_string, faiss_metric)
-        if (
-            using_gpu
-            and hasattr(faiss, "index_cpu_to_gpu")
-            and hasattr(faiss, "StandardGpuResources")
-        ):
+
+        self.log.debug(
+            "use cpu index, use gpu: %s, faiss has gpu support: %s",
+            using_gpu,
+            self.support_gpu(),
+        )
+        if using_gpu and self.support_gpu():
             self.log.debug("copy index to gpu")
-            index = faiss.index_cpu_to_gpu(faiss.StandardGpuResources(), 0, index)
-        else:
-            self.log.debug(
-                "use cpu index, gpu: %s, faiss has gpu support: %s",
-                using_gpu,
-                hasattr(faiss, "index_cpu_to_gpu")
-                and hasattr(faiss, "StandardGpuResources"),
-            )
+            res = faiss.StandardGpuResources()
+            index = faiss.index_cpu_to_gpu(res, 0, index)
         return index
+
+    @classmethod
+    def support_gpu(cls) -> bool:
+        return hasattr(faiss, "get_num_gpus") and faiss.get_num_gpus() > 0
 
     def train(self, data: np.ndarray) -> None:
         return self.index.train(data)
@@ -84,7 +84,7 @@ class FaissIndexUnderTest(IndexUnderTest):
 
     def update_search_args(self, **kwargs):
         if "nprobe" in kwargs:
-            self.index.nprobe = kwargs["nprobe"]
+            self.index.nprobe = int(kwargs["nprobe"])
 
     def cleanup(self) -> None:
         self.index.reset()

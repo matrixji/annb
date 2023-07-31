@@ -2,6 +2,8 @@ from argparse import ArgumentParser
 from typing import Union
 from logging import getLogger, Formatter, StreamHandler, FileHandler
 from sys import stdout
+from tempfile import gettempdir
+from os import path
 
 from .dataset.hdf5_dataset import AnnbHdf5Dataset
 from .dataset.random_dataset import RandomDataset
@@ -41,14 +43,13 @@ def load_dict(s):
     data = {}
     for x in s.split(','):
         k, v = x.split('=')
-        try:
-            v = int(v)
-        except ValueError:
-            v = str(v)
-        try:
-            v = float(v)
-        except ValueError:
-            v = str(v)
+        possible_types = [int, float, str]
+        for t in possible_types:
+            try:
+                v = t(v)
+                break
+            except ValueError:
+                pass
         data[k] = v
     return data
 
@@ -67,7 +68,7 @@ def load_index_factory(index_factory, index_factory_args) -> IndexUnderTestFacto
         exit(1)
 
 
-def create_or_load_dataset(dataset_file: str, dimension: int, metric_type: str):
+def create_or_load_dataset(dataset_file: str, dimension: int, metric_type: str, count: int):
     """
     >>> create_or_load_dataset('sift-128-euclidean.hdf5', 128, 'euclidean')
     <annb.dataset.hdf5_dataset.AnnbHdf5Dataset object at 0x7f6b3d0b9e10>
@@ -79,8 +80,9 @@ def create_or_load_dataset(dataset_file: str, dimension: int, metric_type: str):
             logger.error('Load dataset failed', e)
             exit(1)
     else:
-        temp_file = f'.random_d{dimension}_{metric_type}.hdf5'
-        dataset = RandomDataset(temp_file, dimension=dimension, metric=metric_type)
+
+        temp_file = path.join(gettempdir(), f'.annb_random_d{dimension}_{metric_type}_{count}.hdf5')
+        dataset = RandomDataset(temp_file, dimension=dimension, metric=metric_type, count=count)
     logger.info(
         'use dataset: %s, dim: %d, metric: %s',
         dataset,
@@ -105,10 +107,11 @@ def run_once(
     jobs,
     loop,
     step,
+    count,
 ):
     factory = load_index_factory(index_factory, index_factory_args)
     dataset, index_dim, index_metric_type = create_or_load_dataset(
-        dataset, index_dim, index_metric_type
+        dataset, index_dim, index_metric_type, count
     )
     index = factory.create(index_name, index_dim, index_metric_type, **index_args)
     logger.info(
@@ -153,6 +156,7 @@ def run_file(filename):
             run['jobs'],
             run['loop'],
             run['step'],
+            run.get('count', 1000),
         )
 
 
@@ -304,6 +308,12 @@ def test_main():
     parser.add_argument(
         '--result', default='', help='Result file, if not set will print to stdout'
     )
+    parser.add_argument(
+        '--count',
+        default=1000,
+        type=int,
+        help='Count, only used when generate random dataset',
+    )
 
     opts = parser.parse_args()
     init_logger(opts.log_level, opts.log_file)
@@ -326,6 +336,7 @@ def test_main():
             opts.jobs,
             opts.loop,
             opts.step,
+            opts.count,
         )
 
 

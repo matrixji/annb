@@ -3,7 +3,7 @@ import sys
 from collections import namedtuple
 from logging import getLogger
 from time import monotonic_ns
-from multiprocessing import Process, Queue
+from multiprocessing.dummy import Process, Queue
 from typing import List, Dict
 from datetime import datetime
 
@@ -120,9 +120,7 @@ class Runner:
         # calc recall between ground_truth_neighbors and labels
         for i, (gt, test_items) in enumerate(zip(ground_truth_neighbors, labels)):
             total_count += len(gt)
-            for test_item in test_items:
-                if test_item in gt:
-                    correct_count += 1
+            correct_count += len(set(gt) & set(test_items))
         recall = correct_count / total_count
         self.log.info('recall %.6f(%d/%d)', recall, correct_count, total_count)
         self.benchmark_result.add_query_result(
