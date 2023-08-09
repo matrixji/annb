@@ -29,34 +29,26 @@ class FaissIndexUnderTest(IndexUnderTest):
             index = faiss.IndexFlat(self.dimension, faiss_metric)
         elif index_string == "ivfflat":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
-            index = faiss.IndexIVFFlat(
-                quantizer, self.dimension, self.kwargs.get("nlist", 128), faiss_metric
-            )
-            self.log.info("create index ivfflat with nlist: %s", index.nlist)
+            nlist = self.kwargs.get("nlist", 128)
+            index = faiss.IndexIVFFlat(quantizer, self.dimension, nlist, faiss_metric)
+            self.log.info("create index ivfflat with nlist: %s", nlist)
         elif index_string == "ivfpq":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
-            index = faiss.IndexIVFPQ(
-                quantizer,
-                self.dimension,
-                self.kwargs.get("nlist", 128),
-                self.kwargs.get("m", 8),
-                self.kwargs.get("nbits", 8),
-            )
-            self.log.info(
-                "create index ivfpq with nlist: %s, m: %s, nbits: %s",
-                index.nlist,
-                index.pq.m,
-                index.pq.nbits,
-            )
+            nlist = self.kwargs.get("nlist", 128)
+            m = self.kwargs.get("m", 8)
+            nbits = self.kwargs.get("nbits", 8)
+            index = faiss.IndexIVFPQ(quantizer, self.dimension, nlist, m, nbits)
+            self.log.info("create index ivfpq with nlist: %s, m: %s, nbits: %s", nlist, m, nbits)
         elif index_string == "ivfsq":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
+            nlist = self.kwargs.get("nlist", 128)
             index = faiss.IndexIVFScalarQuantizer(
                 quantizer,
                 self.dimension,
-                self.kwargs.get("nlist", 128),
+                nlist,
                 faiss.ScalarQuantizer.QT_8bit,
             )
-            self.log.info("create index ivfsq(Q8) with nlist: %s", index.nlist)
+            self.log.info("create index ivfsq(Q8) with nlist: %s", nlist)
         else:
             index = faiss.index_factory(self.dimension, index_string, faiss_metric)
 
