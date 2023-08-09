@@ -317,10 +317,12 @@ def test_main():
 
     opts = parser.parse_args()
     init_logger(opts.log_level, opts.log_file)
-    logger.debug('run with options: %s', opts)
+
     if opts.run_file:
+        logger.debug('run with file: %s', opts.run_file)
         run_file(opts.run_file)
     else:
+        logger.debug('run with options: %s', opts)
         run_once(
             opts.name,
             opts.index_factory,
