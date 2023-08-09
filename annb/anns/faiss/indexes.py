@@ -32,6 +32,7 @@ class FaissIndexUnderTest(IndexUnderTest):
             index = faiss.IndexIVFFlat(
                 quantizer, self.dimension, self.kwargs.get("nlist", 128), faiss_metric
             )
+            self.log.info("create index ivfflat with nlist: %s", index.nlist)
         elif index_string == "ivfpq":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
             index = faiss.IndexIVFPQ(
@@ -41,6 +42,12 @@ class FaissIndexUnderTest(IndexUnderTest):
                 self.kwargs.get("m", 8),
                 self.kwargs.get("nbits", 8),
             )
+            self.log.info(
+                "create index ivfpq with nlist: %s, m: %s, nbits: %s",
+                index.nlist,
+                index.pq.m,
+                index.pq.nbits,
+            )
         elif index_string == "ivfsq":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
             index = faiss.IndexIVFScalarQuantizer(
@@ -49,6 +56,7 @@ class FaissIndexUnderTest(IndexUnderTest):
                 self.kwargs.get("nlist", 128),
                 faiss.ScalarQuantizer.QT_8bit,
             )
+            self.log.info("create index ivfsq(Q8) with nlist: %s", index.nlist)
         else:
             index = faiss.index_factory(self.dimension, index_string, faiss_metric)
 
