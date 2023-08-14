@@ -196,7 +196,7 @@ class IndexUnderTestDeployment:
             sha1sum.update(text.encode('utf-8'))
         venv_path = os.path.join(get_run_dir(), 'venv-{}'.format(sha1sum.hexdigest()))
         if not os.path.isfile(os.path.join(venv_path, 'bin', 'python')):
-            builder = venv.EnvBuilder(with_pip=True, upgrade_deps=True)
+            builder = venv.EnvBuilder(with_pip=True)
             builder.create(venv_path)
         requirements_path = os.path.join(venv_path, 'requirements.txt')
         with open(requirements_path, 'w') as f:

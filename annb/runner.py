@@ -50,6 +50,9 @@ class Runner:
         self.benchmark_result.add_attribute(
             'started', datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         )
+        if self.step == 0:
+            # use all test data query once for batch mode
+            self.step = self.dataset.test.shape[0]
 
     def duration_run(self, text, func, *args, **kwargs):
         started = monotonic_ns()

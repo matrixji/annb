@@ -187,6 +187,18 @@ def report_png(inputs, output, **kwargs):
     plot_result_recall_vs_qps(data, output=output, **kwargs)
 
 
+def pth_file_path(file_path: str):
+    """
+    >>> pth_file_path('a.pth')
+    'a.pth'
+    >>> pth_file_path('a')
+    'a.pth'
+    """
+    if file_path and not file_path.endswith('.pth'):
+        file_path = file_path + '.pth'
+    return file_path
+
+
 def report_main():
     parser = ArgumentParser()
     parser.add_argument('input', default=[], help='Input report files', nargs='+')
@@ -197,7 +209,7 @@ def report_main():
         help='Output format',
     )
     parser.add_argument(
-        '--output', default='', help='Output file, if not set will print to stdout'
+        '--output', default='', help='Output pth file, if not set will print to stdout'
     )
     parser.add_argument(
         '--title',
@@ -286,7 +298,10 @@ def test_main():
     )
     parser.add_argument('--topk', default=10, type=int, help='topk')
     parser.add_argument(
-        '--step', default=10, type=int, help='step size, also as batch size'
+        '--step', default=10, type=int, help='step size, also as batch size, if use 0, will query all test data once'
+    )
+    parser.add_argument(
+        '--batch', default=False, action='store_true', help='batch mode, alias --step 0'
     )
     parser.add_argument(
         '--jobs',
@@ -306,7 +321,7 @@ def test_main():
         help='Dataset file, if not set will generate random dataset',
     )
     parser.add_argument(
-        '--result', default='', help='Result file, if not set will print to stdout'
+        '--result', default='', type=pth_file_path, help='Result file, if not set will print to stdout'
     )
     parser.add_argument(
         '--count',
@@ -322,6 +337,8 @@ def test_main():
         logger.debug('run with file: %s', opts.run_file)
         run_file(opts.run_file)
     else:
+        if opts.batch:
+            opts.step = 0
         logger.debug('run with options: %s', opts)
         run_once(
             opts.name,
