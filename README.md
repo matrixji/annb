@@ -1,5 +1,7 @@
 # ANNB: Approximate Nearest Neighbor Benchmark
 
+[![PyPI Version](https://img.shields.io/pypi/v/annb.svg)](https://pypi.python.org/pypi/annb)
+
 Note: This is a work in progress. The API/CLI is not stable yet.
 
 ## Installation
@@ -25,7 +27,7 @@ Just run `annb-test` to start your first benchmark with a random dataset.
 annb-test
 ```
 
-If will produce a result like this:
+It will produce a result like this:
 
 ```plain
 ❯ annb-test
