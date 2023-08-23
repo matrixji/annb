@@ -72,6 +72,7 @@ def load_configs(filename: str):
         "loop": 5,
         "dataset": "annb.RandomDataset",
         "result": None,
+        "result_log": False,
     }
     data = {}
     with open(filename, "r") as f:

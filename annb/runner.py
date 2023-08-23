@@ -1,7 +1,8 @@
+from collections.abc import Mapping
 from queue import Empty
 import sys
 from collections import namedtuple
-from logging import getLogger
+from logging import getLogger, Logger, DEBUG
 from time import monotonic_ns
 from multiprocessing.dummy import Process, Queue
 from typing import List, Dict
@@ -17,10 +18,18 @@ SingleResult = namedtuple(
     'SingleResult', ['distances', 'labels', 'time', 'test_indexes', 'count']
 )
 
+class RunnerLog(Logger):
+    def __init__(self, name, rlog):
+        super().__init__(name, DEBUG)
+        self._logger = getLogger('annb')
+        self.rlog = rlog
+
+    def _log(self, level, msg, args, **kwargs):
+        self._logger.log(level, msg, *args, **kwargs)
+        if self.rlog:
+            self.rlog.log(level, msg, *args, **kwargs)
 
 class Runner:
-    log = getLogger('annb')
-
     def __init__(self, name, index: IndexUnderTest, dataset: BaseDataset, **kwargs):
         self.name = name
         self.index = index
@@ -53,6 +62,9 @@ class Runner:
         if self.step == 0:
             # use all test data query once for batch mode
             self.step = self.dataset.test.shape[0]
+        self.rlog = kwargs.get('rlog', None)
+        self.log = RunnerLog(name, self.rlog)
+        self.log.info('Runner init with %s', kwargs)
 
     def duration_run(self, text, func, *args, **kwargs):
         started = monotonic_ns()

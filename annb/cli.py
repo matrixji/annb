@@ -12,14 +12,15 @@ from .plot import plot_result_recall_vs_qps
 from .result import BenchmarkResult
 from .runner import Runner
 from .config import load_configs
+from . import __version__ as annb_version
 
 logger = getLogger('annb')
 
 
-def init_logger(log_level: str, log_file: Union[str, None] = None):
-    """Initialize logger"""
-    logger = getLogger('annb')
-    log_level = log_level.upper()
+def create_logger(name: str, log_level: Union[str, int], log_file: Union[str, None] = None):
+    logger = getLogger(name)
+    if isinstance(log_level, str):
+        log_level = log_level.upper()
     handler = StreamHandler(stdout)
     if log_file:
         handler = FileHandler(log_file)
@@ -32,6 +33,11 @@ def init_logger(log_level: str, log_file: Union[str, None] = None):
     logger.addHandler(handler)
     logger.setLevel(log_level)
     return logger
+
+
+def init_logger(log_level: str, log_file: Union[str, None] = None):
+    """Initialize logger"""
+    return create_logger('annb', log_level, log_file)
 
 
 def load_dict(s):
@@ -103,6 +109,7 @@ def run_once(
     query_args,
     dataset,
     result,
+    result_log,
     topk,
     jobs,
     loop,
@@ -121,6 +128,10 @@ def run_once(
         index.metric_type,
         index_args,
     )
+    rlog = None
+    if result and result_log:
+        result_log_file = result + '.log'
+        rlog = create_logger('annb.run-' + name, logger.level, result_log_file)
     runner = Runner(
         name,
         index,
@@ -130,9 +141,11 @@ def run_once(
         jobs=jobs,
         loop=loop,
         step=step,
+        rlog=rlog,
     )
     runner.run()
     if result:
+        logger.info('save result to %s', result)
         runner.benchmark_result.save(result)
     else:
         print(runner.benchmark_result)
@@ -152,6 +165,7 @@ def run_file(filename):
             run['query_args'],
             run['dataset'],
             run['result'],
+            run['result_log'],
             run['topk'],
             run['jobs'],
             run['loop'],
@@ -256,6 +270,10 @@ def test_main():
         '--log-file', default=None, help='Log file, if not specified, log to stdout'
     )
     parser.add_argument(
+        '--result-log', default=False, help='Log each run result, only used for debug/develop',
+         action='store_true'
+    )
+    parser.add_argument(
         '--run-file', default='', help='Run config file, if not set use config from cli'
     )
     # options for run
@@ -329,6 +347,9 @@ def test_main():
         type=int,
         help='Count, only used when generate random dataset',
     )
+    parser.add_argument(
+        '--version', action='version', version='%(prog)s ' + annb_version
+    )
 
     opts = parser.parse_args()
     init_logger(opts.log_level, opts.log_file)
@@ -351,6 +372,7 @@ def test_main():
             opts.query_args,
             opts.dataset,
             opts.result,
+            opts.result_log,
             opts.topk,
             opts.jobs,
             opts.loop,
