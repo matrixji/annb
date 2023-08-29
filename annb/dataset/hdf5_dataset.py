@@ -24,8 +24,12 @@ class Hdf5Dataset(BaseDataset):
         elif isinstance(file, h5.File):
             self.hd5_file = file
         self.validate()
-        self.dimension = self.data.shape[1]
-        self.count = self.data.shape[0]
+        if 'dimension' in self.hd5_file.attrs:
+            self.dimension = self.hd5_file.attrs['dimension']
+            self.count = self.data.shape[0] / self.dimension
+        else:
+            self.dimension = self.data.shape[1]
+            self.count = self.data.shape[0]
         self.metric_type = MetricType.from_text(str(self.hd5_file.attrs['distance']))
         self.name = path.basename(self.hd5_file.filename)
 

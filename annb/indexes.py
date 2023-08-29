@@ -12,6 +12,7 @@ from .envs import get_run_dir
 class MetricType(Enum):
     INNER_PRODUCT = 1
     L2 = 2
+    JACCARD = 3
 
     @classmethod
     def from_text(cls, text: str):
@@ -25,6 +26,8 @@ class MetricType(Enum):
             return cls.L2
         elif text.lower() == 'l2':
             return cls.L2
+        elif text.lower() == 'jaccard':
+            return cls.JACCARD
         else:
             raise ValueError('Unknown metric type: {}'.format(text))
 

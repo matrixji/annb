@@ -12,11 +12,13 @@ class FaissIndexUnderTest(IndexUnderTest):
         self.index = self.create_index()
 
     def create_index(self) -> Union[faiss.Index, None]:
-        faiss_metric = (
-            faiss.METRIC_L2
-            if self.metric_type == MetricType.L2
-            else faiss.METRIC_INNER_PRODUCT
-        )
+        faiss_metric = faiss.METRIC_L2
+        if self.metric_type == MetricType.INNER_PRODUCT:
+            faiss_metric = faiss.METRIC_INNER_PRODUCT
+        elif self.metric_type == MetricType.JACCARD:
+            # need faiss 1.7.4 or later
+            faiss_metric = faiss.METRIC_Jaccard
+        is_binary = False
         using_gpu = str(self.kwargs.get("gpu", "no")).lower() in [
             "yes",
             "true",
@@ -26,19 +28,29 @@ class FaissIndexUnderTest(IndexUnderTest):
         index_string = self.kwargs.get("index", "flat")
         index = None
         if index_string == "flat":
-            index = faiss.IndexFlat(self.dimension, faiss_metric)
+            if is_binary:
+                index = faiss.IndexBinaryFlat(self.dimension, faiss_metric)
+                self.log.info("create index IndexBinaryFlat(d=%d,%s)", self.dimension, str(faiss_metric))
+            else:
+                index = faiss.IndexFlat(self.dimension, faiss_metric)
+                self.log.info("create index IndexFlat(d=%d,%s)", self.dimension, str(faiss_metric))
         elif index_string == "ivfflat":
-            quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
             nlist = self.kwargs.get("nlist", 128)
-            index = faiss.IndexIVFFlat(quantizer, self.dimension, nlist, faiss_metric)
-            self.log.info("create index ivfflat with nlist: %s", nlist)
+            if is_binary:
+                index = faiss.IndexBinaryFlat(self.dimension, faiss_metric)
+                index = faiss.IndexBinaryIVF(index, self.dimension, nlist)
+                self.log.info("create index IndexBinaryIVF(d=%d,nlist=%d,%s)", self.dimension, nlist, str(faiss_metric))
+            else:
+                quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
+                index = faiss.IndexIVFFlat(quantizer, self.dimension, nlist, faiss_metric)
+                self.log.info("create index IndexIVFFlat(d=%d,nlist=%d,%s)", self.dimension, nlist, str(faiss_metric))
         elif index_string == "ivfpq":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
             nlist = self.kwargs.get("nlist", 128)
             m = self.kwargs.get("m", 8)
             nbits = self.kwargs.get("nbits", 8)
             index = faiss.IndexIVFPQ(quantizer, self.dimension, nlist, m, nbits)
-            self.log.info("create index ivfpq with nlist: %s, m: %s, nbits: %s", nlist, m, nbits)
+            self.log.info("create index IndexIVFPQ(d=%d,nlist=%d,m=%d,nbits=%d)", self.dimension, nlist, m, nbits)
         elif index_string == "ivfsq":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
             nlist = self.kwargs.get("nlist", 128)
@@ -48,9 +60,10 @@ class FaissIndexUnderTest(IndexUnderTest):
                 nlist,
                 faiss.ScalarQuantizer.QT_8bit,
             )
-            self.log.info("create index ivfsq(Q8) with nlist: %s", nlist)
+            self.log.info("create index IndexIVFScalarQuantizer(d=%d,nlist=%d,QT_8bit)", self.dimension, nlist)
         else:
             index = faiss.index_factory(self.dimension, index_string, faiss_metric)
+            self.log.info("create index %s(d=%d,%s)", index_string, self.dimension,str(faiss_metric))
 
         self.log.debug(
             "use cpu index, use gpu: %s, faiss has gpu support: %s",
