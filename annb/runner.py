@@ -91,8 +91,9 @@ class Runner:
         query_args = self.query_args or [None]
         for i, query_arg in enumerate(query_args):
             if query_arg:
-                self.index.update_search_args(**query_arg)
-                self.log.info('Update query args: %s', query_arg)
+                if isinstance(query_arg, Dict):
+                    self.index.update_search_args(**query_arg)
+                    self.log.info('Update query args: %s', query_arg)
             self.records.clear()
             for loop_index in range(self.loop):
                 self.loop_index = loop_index
