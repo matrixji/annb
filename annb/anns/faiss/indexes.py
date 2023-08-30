@@ -84,7 +84,11 @@ class FaissIndexUnderTest(IndexUnderTest):
         return self.index.train(data)
 
     def add(self, data: np.ndarray) -> None:
-        return self.index.add(data)
+        count = data.shape[0]
+        step_size = 10000
+        for i in range(0, count, step_size):
+            self.index.add(data[i : i + step_size])
+        return
 
     def warmup(self) -> None:
         for _ in range(3):

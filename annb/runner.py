@@ -24,10 +24,10 @@ class RunnerLog(Logger):
         self._logger = getLogger('annb')
         self.rlog = rlog
 
-    def _log(self, level, msg, args, **kwargs):
-        self._logger.log(level, msg, *args, **kwargs)
+    def _log(self, level, msg, *args, **kwargs):
+        self._logger._log(level, msg, *args, **kwargs)
         if self.rlog:
-            self.rlog.log(level, msg, *args, **kwargs)
+            self.rlog._log(level, msg, *args, **kwargs)
 
 class Runner:
     def __init__(self, name, index: IndexUnderTest, dataset: BaseDataset, **kwargs):
