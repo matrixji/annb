@@ -24,6 +24,9 @@ class Hdf5Dataset(BaseDataset):
         elif isinstance(file, h5.File):
             self.hd5_file = file
         self.validate()
+        # load the data
+        self.data_ = np.array(self.hd5_file['train'])
+        self.test_data_ = np.array(self.hd5_file['test'])
         if 'dimension' in self.hd5_file.attrs:
             self.dimension = self.hd5_file.attrs['dimension']
             self.count = self.data.shape[0] / self.dimension
@@ -32,6 +35,7 @@ class Hdf5Dataset(BaseDataset):
             self.count = self.data.shape[0]
         self.metric_type = MetricType.from_text(str(self.hd5_file.attrs['distance']))
         self.name = path.basename(self.hd5_file.filename)
+
 
     def __str__(self) -> str:
         return (
@@ -137,18 +141,18 @@ class Hdf5Dataset(BaseDataset):
     @property
     def data(self) -> np.ndarray:
         # using train dataset as data
-        return np.array(self.hd5_file['train'])
+        return self.data_
 
     @property
     def train(self) -> np.ndarray:
-        return np.array(self.hd5_file['train'])
+        return self.data_
 
     @property
     def test(self) -> np.ndarray:
         """
         Return query test dataset.
         """
-        return np.array(self.hd5_file['test'])
+        return self.test_data_
 
     @property
     def ground_truth_distances(self) -> np.ndarray:
@@ -210,3 +214,14 @@ class AnnbHdf5Dataset(Hdf5Dataset):
             ground_truth,
             extra_attrs,
         )
+
+    def fit(self):
+        # format float32 for float index
+        if self.metric_type in (MetricType.L2, MetricType.INNER_PRODUCT):
+            if self.data_.dtype != np.float32:
+                self.data_ = self.data_.astype(np.float32)
+        # normalize for angular/ip metric
+        if not self.normalized and self.metric_type == MetricType.INNER_PRODUCT:
+            self.data_ /= np.linalg.norm(self.data_, axis=1)[:, np.newaxis]
+            self.test_data_ /= np.linalg.norm(self.test_data_, axis=1)[:, np.newaxis]
+            self.normalized = True

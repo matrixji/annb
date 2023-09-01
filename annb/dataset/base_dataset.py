@@ -56,3 +56,10 @@ class BaseDataset(ABC):
         Return ground truth for dataset. Distances to nearest neighbors.
         """
         pass
+
+    @abstractmethod
+    def fit(self):
+        """
+        Fit the dataset for training/add/query.
+        """
+        pass

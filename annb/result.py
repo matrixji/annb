@@ -151,8 +151,11 @@ class BenchmarkResult:
         query_durations = ''
         for query_result in self.query_results:
             args = ''
-            for key, value in query_result.args.items():
-                args += f'{key}={value}'
+            if isinstance(query_result.args, Dict):
+                for key, value in query_result.args.items():
+                    args += f'{key}={value}'
+            else:
+                args = 'none'
             recall = f'recall={query_result.recall}'
             durations_total_query = sum([d.count for d in query_result.durations])
             durations_total_duration = sum([d.duration for d in query_result.durations])

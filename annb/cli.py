@@ -86,7 +86,6 @@ def create_or_load_dataset(dataset_file: str, dimension: int, metric_type: str, 
             logger.error('Load dataset failed', e)
             exit(1)
     else:
-
         temp_file = path.join(gettempdir(), f'.annb_random_d{dimension}_{metric_type}_{count}.hdf5')
         dataset = RandomDataset(temp_file, dimension=dimension, metric=metric_type, count=count)
     logger.info(
@@ -95,6 +94,7 @@ def create_or_load_dataset(dataset_file: str, dimension: int, metric_type: str, 
         dataset.dimension,
         dataset.metric_type,
     )
+    dataset.fit()
     return dataset, dataset.dimension, dataset.metric_type
 
 
@@ -151,9 +151,10 @@ def run_once(
         print(runner.benchmark_result)
 
 
-def run_file(filename):
+def run_file(filename, **kwargs):
     runs = load_configs(filename)
     for run in runs:
+        run.update(kwargs)
         run_once(
             run['name'],
             run['index_factory'],
@@ -356,7 +357,11 @@ def test_main():
 
     if opts.run_file:
         logger.debug('run with file: %s', opts.run_file)
-        run_file(opts.run_file)
+        kwargs = {}
+        # result_log could force set from cmdline
+        if opts.result_log:
+            kwargs['result_log'] = opts.result_log
+        run_file(opts.run_file, **kwargs)
     else:
         if opts.batch:
             opts.step = 0

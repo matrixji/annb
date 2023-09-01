@@ -23,6 +23,7 @@ def plot_result_recall_vs_qps(results: List[BenchmarkResult], **kwargs):
 
     ax.set_xlabel('Recall')
     ax.set_ylabel('QPS')
+    ax.set_xlim(0.0, 1.0)
 
     lines = []
     labels = []
