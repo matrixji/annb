@@ -95,17 +95,17 @@ class BenchmarkResult:
                 str(insert_durations / 1000000.0),
                 str(query_result.args),
                 str(query_result.recall),
-                str(BenchmarkResult.qps(query_result.durations)),
+                str(BenchmarkResult.qps(query_result.durations, jobs)),
                 str(BenchmarkResult.latency(query_result.durations) / 1000000.0),
                 str(BenchmarkResult.latency_pn(query_result.durations, 95) / 1000000.0),
                 str(BenchmarkResult.latency_pn(query_result.durations, 99) / 1000000.0),
             )
 
     @staticmethod
-    def qps(durations):
+    def qps(durations, jobs):
         return sum([d.count for d in durations]) / (
             sum([d.duration for d in durations]) / 1000000000.0
-        )
+        ) * jobs
 
     @staticmethod
     def latency(durations):
@@ -159,7 +159,7 @@ class BenchmarkResult:
             recall = f'recall={query_result.recall}'
             durations_total_query = sum([d.count for d in query_result.durations])
             durations_total_duration = sum([d.duration for d in query_result.durations])
-            durations_total_qps = BenchmarkResult.qps(query_result.durations)
+            durations_total_qps = BenchmarkResult.qps(query_result.durations, self.attributes['jobs'])
             latency = BenchmarkResult.latency(query_result.durations)
             latency_p95 = BenchmarkResult.latency_pn(query_result.durations, 95)
             latency_p99 = BenchmarkResult.latency_pn(query_result.durations, 99)
