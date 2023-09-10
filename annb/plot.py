@@ -29,7 +29,7 @@ def plot_result_recall_vs_qps(results: List[BenchmarkResult], **kwargs):
     labels = []
     for result in results:
         recalls = [r.recall for r in result.query_results]
-        qps = [BenchmarkResult.qps(r.durations, result.add_attribute['jobs']) for r in result.query_results]
+        qps = [BenchmarkResult.qps(r.durations, result.attributes['jobs']) for r in result.query_results]
         lines.append(
             ax.plot(
                 recalls, qps, linestyle='-', marker='o', label=result.attributes['name']
