@@ -88,6 +88,7 @@ class Runner:
         self.run_search_loop()
 
     def run_search_loop(self):
+        self.index.warmup()
         query_args = self.query_args or [None]
         for i, query_arg in enumerate(query_args):
             if query_arg:
@@ -181,7 +182,7 @@ class Runner:
     def run_search(self):
         xq = self.dataset.test
         total_count = len(xq)
-        jobs_args_list = [[]] * self.jobs
+        jobs_args_list = {}
         for i in range(0, total_count, self.step):
             index = i // self.step % self.jobs
             indexes = list(range(i, min(i + self.step, total_count)))
@@ -192,9 +193,9 @@ class Runner:
                 self.topk,
                 self.queue,
             )
-            jobs_args_list[index].append(job_arg)
+            jobs_args_list.setdefault(index, []).append(job_arg)
         jobs = []
-        for pargs in jobs_args_list:
+        for pargs in jobs_args_list.values():
             p = Process(target=self.run_multi_search, args=(pargs,))
             jobs.append(p)
             p.start()
