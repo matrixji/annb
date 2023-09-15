@@ -64,7 +64,7 @@ class MilvusIndexUnderTest(IndexUnderTest):
                 index_type = 'IVF_PQ'
             params = {
                 'nlist': nlist,
-                'm': int(self.kwargs.get("m", 16)),
+                'm': int(self.kwargs.get("m", self.dimension // 2)),
                 'nbits': int(self.kwargs.get("nbits", 8)),
             }
         elif index in ('HNSW', 'hnsw'):

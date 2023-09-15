@@ -47,7 +47,7 @@ class FaissIndexUnderTest(IndexUnderTest):
         elif index_string == "ivfpq":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
             nlist = self.kwargs.get("nlist", 128)
-            m = self.kwargs.get("m", 8)
+            m = self.kwargs.get("m", self.dimension // 2)
             nbits = self.kwargs.get("nbits", 8)
             index = faiss.IndexIVFPQ(quantizer, self.dimension, nlist, m, nbits)
             self.log.info("create index IndexIVFPQ(d=%d,nlist=%d,m=%d,nbits=%d)", self.dimension, nlist, m, nbits)
