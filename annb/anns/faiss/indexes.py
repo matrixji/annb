@@ -47,7 +47,16 @@ class FaissIndexUnderTest(IndexUnderTest):
         elif index_string == "ivfpq":
             quantizer = faiss.IndexFlat(self.dimension, faiss_metric)
             nlist = self.kwargs.get("nlist", 128)
-            m = self.kwargs.get("m", self.dimension // 2)
+            if using_gpu and self.support_gpu():
+                m = self.kwargs.get("m", 0)
+                if m == 0:
+                    # try to find a good m for gpu
+                    for possible_m in (48, 40, 32, 28, 24, 20, 16, 12, 8, 4, 3, 2, 1):
+                        if self.dimension % possible_m == 0:
+                            m = possible_m
+                            break
+            else:
+                m = self.kwargs.get("m", self.dimension // 2)
             nbits = self.kwargs.get("nbits", 8)
             index = faiss.IndexIVFPQ(quantizer, self.dimension, nlist, m, nbits)
             self.log.info("create index IndexIVFPQ(d=%d,nlist=%d,m=%d,nbits=%d)", self.dimension, nlist, m, nbits)
