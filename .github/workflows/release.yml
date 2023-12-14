@@ -1,0 +1,25 @@
+on:
+  tags:
+    - 'v*.*.*'
+
+pypi-publish:
+    name: Upload release to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/annb
+    permissions:
+      id-token: write
+    steps:
+    - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: '3.8'
+      - run: pip install -r requirements.txt -r requirements-devel.txt
+      - run: python -m pytest -v .
+      - run: python -m build
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_TOKEN }}

@@ -1,3 +1,4 @@
 pytest
 faiss-cpu
 ruff
+build
