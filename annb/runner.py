@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from queue import Empty
 import sys
 from collections import namedtuple
@@ -39,6 +38,7 @@ class Runner:
         self.step = kwargs.get('step', 10)
         self.jobs = kwargs.get('jobs', 1)
         self.loop = kwargs.get('loop', 5)
+        self.query_timeout = kwargs.get('query_timeout', 180)
         self.benchmark_result = BenchmarkResult()
         self.loop_index = 0
         self.queue = Queue()
@@ -103,9 +103,10 @@ class Runner:
             self.log.info('Finish query args(%d/%d)', i + 1, len(query_args))
 
     @classmethod
-    def run_multi_search(cls, args):
+    def run_multi_search(cls, index, queue, args):
         for arg in args:
             cls.run_single_search(*arg)
+        queue.put(index)
 
     @classmethod
     def run_single_search(
@@ -195,24 +196,50 @@ class Runner:
             )
             jobs_args_list.setdefault(index, []).append(job_arg)
         jobs = []
-        for pargs in jobs_args_list.values():
-            p = Process(target=self.run_multi_search, args=(pargs,))
+        for index, pargs in jobs_args_list.items():
+            p = Process(target=self.run_multi_search, args=(index, self.queue, pargs,))
             jobs.append(p)
             p.start()
-        # collect the result
-        for i in range(0, total_count, self.step):
+        # collect the result, wait all records collected, or some proc exit/terminated before finish
+        finished_processes_events = set()
+        finished_processes = {}
+        proceed_count = 0
+        i = 0
+        last_received = datetime.now()
+        while proceed_count < total_count:
             try:
-                ret = self.queue.get(timeout=180)
+                ret = self.queue.get(timeout=1)
+                if isinstance(ret, str):
+                    self.log.debug('debug from subprocess: %s', ret)
+                elif isinstance(ret, int):
+                    # process[ret] finished
+                    finished_processes_events.add(ret)
+                else:
+                    proceed_count += self.step
+                    self.handle_result(ret, proceed_count, total_count)
+                    last_received = datetime.now()
             except Empty:
-                self.log.error(
-                    'Timeout when waiting for result, not result return in 180 seconds'
-                )
-                break
-            if isinstance(ret, str):
-                self.log.debug('debug from subprocess: %s', ret)
-            else:
-                proceed_count = i + self.step
-                self.handle_result(ret, proceed_count, total_count)
+                if (datetime.now() - last_received).total_seconds() > self.query_timeout:
+                    self.log.error('Not receive any event from runner in %d seconds, break ...', self.query_timeout)
+                    break
+                pass
+             # check abnormal exit procs
+            for proc_index, proc in enumerate(jobs):
+                if not proc.is_alive() and proc_index not in finished_processes:
+                    self.log.debug('process@%d is not alive', proc_index)
+                    finished_processes[proc_index] = datetime.now()
+            for proc_index, exit_time in finished_processes.items():
+                if (datetime.now() - exit_time).total_seconds() < 3:
+                    # check for process already exit more that 3 seconds
+                    continue
+                if proc_index not in finished_processes_events:
+                    self.log.error('porcess@%d exis abnormally, break current runloop ...', proc_index)
+                    proceed_count = total_count
+                    break
+        # cleanup
+        for p in jobs:
+            if p.is_alive():
+                p.terminate()
         for p in jobs:
             p.join()
         self.log.info(
